@@ -8,6 +8,37 @@ from ..models import Note
 
 
 User = get_user_model()
+CONST_SLUG = 'title-slug'
+
+
+def make_urls():
+    urls = {
+        'test_pages_availability': [
+            ('notes:home', None),
+            ('users:login', None),
+            ('users:logout', None),
+            ('users:signup', None),
+        ],
+        'test_notes_availability_for_auth_user': [
+            'notes:list',
+            'notes:success',
+            'notes:add'
+        ],
+        'test_availability_for_note_detail_edit_and_delete': [
+            'notes:detail',
+            'notes:edit',
+            'notes:delete'
+        ],
+        'test_redirect_for_anonymous_client': [
+            ('notes:list', None),
+            ('notes:success', None),
+            ('notes:add', None),
+            ('notes:detail', (CONST_SLUG,)),
+            ('notes:edit', (CONST_SLUG,)),
+            ('notes:delete', (CONST_SLUG,)),
+        ]
+    }
+    return urls
 
 
 class TestRoutes(TestCase):
@@ -29,12 +60,7 @@ class TestRoutes(TestCase):
         5) Страницы регистрации пользователей, входа в учётную запись
            и выхода из неё доступны всем пользователям.
         """
-        urls = (
-            ('notes:home', None),
-            ('users:login', None),
-            ('users:logout', None),
-            ('users:signup', None),
-        )
+        urls = make_urls()['test_pages_availability']
         for name, args in urls:
             with self.subTest(name=name):
                 url = reverse(name, args=args)
@@ -47,11 +73,7 @@ class TestRoutes(TestCase):
            заметок notes/, страница успешного добавления заметки done/,
            страница добавления новой заметки add/.
         """
-        urls = (
-            'notes:list',
-            'notes:success',
-            'notes:add',
-        )
+        urls = make_urls()['test_notes_availability_for_auth_user']
         self.client.force_login(self.author)
         for page in urls:
             with self.subTest(page=page):
@@ -66,15 +88,11 @@ class TestRoutes(TestCase):
            Если на эти страницы попытается зайти другой пользователь —
            вернётся ошибка 404.
         """
+        test_pages = make_urls()['test_availability_for_note_detail_edit_and_delete']
         user_statuses = (
             (self.author, HTTPStatus.OK),
             (self.reader, HTTPStatus.NOT_FOUND),
         )
-        test_pages = [
-            'notes:detail',
-            'notes:edit',
-            'notes:delete'
-        ]
         for user, status in user_statuses:
             self.client.force_login(user)
             for name in test_pages:
@@ -91,14 +109,7 @@ class TestRoutes(TestCase):
            анонимный пользователь перенаправляется на страницу логина.
         """
         login_url = reverse('users:login')
-        urls = (
-            ('notes:list', None),
-            ('notes:success', None),
-            ('notes:add', None),
-            ('notes:detail', (self.note.slug,)),
-            ('notes:edit', (self.note.slug,)),
-            ('notes:delete', (self.note.slug,)),
-        )
+        urls = make_urls()['test_redirect_for_anonymous_client']
         for page, args in urls:
             with self.subTest(page=page):
                 url = reverse(page, args=args)
