@@ -55,7 +55,7 @@ def form_data():
 
 
 @pytest.fixture
-def create_set_of_news():
+def set_of_news():
     News.objects.bulk_create(
         News(
             title=f'Новость {index}',
@@ -67,7 +67,7 @@ def create_set_of_news():
 
 
 @pytest.fixture
-def create_set_of_comments(news, author):
+def set_of_comments(news, author):
     now = timezone.now()
     for index in range(11):
         comment = Comment.objects.create(

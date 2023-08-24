@@ -2,22 +2,25 @@ import pytest
 from django.urls import reverse
 from django.conf import settings
 
+from ..forms import CommentForm
+
 pytestmark = pytest.mark.django_db
 
 
-@pytest.mark.usefixtures('create_set_of_news')
+@pytest.mark.usefixtures('set_of_news')
 def test_news_count(client):
     """
-    1) Количество новостей на главной странице — не более 10.
+    1) Количество новостей на главной странице равно количеству,
+       установленному в настройках проекта.
     """
     url = reverse('news:home')
     response = client.get(url)
-    object_list = response.context['object_list']
-    news_count = len(object_list)
+    news = response.context['object_list']
+    news_count = len(news)
     assert news_count == settings.NEWS_COUNT_ON_HOME_PAGE
 
 
-@pytest.mark.usefixtures('create_set_of_news')
+@pytest.mark.usefixtures('set_of_news')
 def test_news_order(client):
     """
     2) Новости отсортированы от самой свежей к самой старой.
@@ -25,17 +28,17 @@ def test_news_order(client):
     """
     url = reverse('news:home')
     response = client.get(url)
-    object_list = response.context['object_list']
+    news = response.context['object_list']
     sorted_list = sorted(
-        object_list,
+        news,
         key=lambda news: news.date,
         reverse=True
     )
-    for current, expected in zip(object_list, sorted_list):
+    for current, expected in zip(news, sorted_list):
         assert current.date == expected.date
 
 
-@pytest.mark.usefixtures('create_set_of_comments')
+@pytest.mark.usefixtures('set_of_comments')
 def test_comments_order(client, news_pk):
     """
     3) Комментарии на странице отдельной новости отсортированы
@@ -43,19 +46,19 @@ def test_comments_order(client, news_pk):
     """
     url = reverse('news:detail', args=news_pk)
     response = client.get(url)
-    object_list = response.context['news'].comment_set.all()
+    comments = response.context['news'].comment_set.all()
     comments_sorted_list = sorted(
-        object_list,
+        comments,
         key=lambda comment: comment.created
     )
-    for current, expected in zip(object_list, comments_sorted_list):
-        assert current.created == current.created
+    for current, expected in zip(comments, comments_sorted_list):
+        assert current.created == expected.created
 
 
 @pytest.mark.parametrize(
     'username, is_permitted', (
         (pytest.lazy_fixture('admin_client'), True),
-        (pytest.lazy_fixture('client'), False)
+        (pytest.lazy_fixture('client'), False),
     )
 )
 def test_comment_form_availability_for_diff_users(
