@@ -2,8 +2,6 @@ import pytest
 from django.urls import reverse
 from django.conf import settings
 
-from ..forms import CommentForm
-
 pytestmark = pytest.mark.django_db
 
 

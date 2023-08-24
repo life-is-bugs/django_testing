@@ -64,8 +64,10 @@ class TestRoutes(TestCase):
         for name, args in urls:
             with self.subTest(name=name):
                 url = reverse(name, args=args)
-                response = self.client.get(url)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
+                self.assertEqual(
+                    self.client.get(url).status_code,
+                    HTTPStatus.OK
+                )
 
     def test_notes_availability_for_auth_user(self):
         """
@@ -78,8 +80,10 @@ class TestRoutes(TestCase):
         for page in urls:
             with self.subTest(page=page):
                 url = reverse(page)
-                response = self.client.get(url)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
+                self.assertEqual(
+                    self.client.get(url).status_code,
+                    HTTPStatus.OK
+                )
 
     def test_availability_for_note_detail_edit_and_delete(self):
         """
@@ -88,7 +92,9 @@ class TestRoutes(TestCase):
            Если на эти страницы попытается зайти другой пользователь —
            вернётся ошибка 404.
         """
-        test_pages = make_urls()['test_availability_for_note_detail_edit_and_delete']
+        test_pages = make_urls()[
+            'test_availability_for_note_detail_edit_and_delete'
+        ]
         user_statuses = (
             (self.author, HTTPStatus.OK),
             (self.reader, HTTPStatus.NOT_FOUND),
@@ -98,8 +104,10 @@ class TestRoutes(TestCase):
             for name in test_pages:
                 with self.subTest(user=user, name=name):
                     url = reverse(name, args=(self.note.slug,))
-                    response = self.client.get(url)
-                    self.assertEqual(response.status_code, status)
+                    self.assertEqual(
+                        self.client.get(url).status_code,
+                        status
+                    )
 
     def test_redirect_for_anonymous_client(self):
         """
@@ -114,5 +122,7 @@ class TestRoutes(TestCase):
             with self.subTest(page=page):
                 url = reverse(page, args=args)
                 redirect_url = f'{login_url}?next={url}'
-                response = self.client.get(url)
-                self.assertRedirects(response, redirect_url)
+                self.assertRedirects(
+                    self.client.get(url),
+                    redirect_url
+                )

@@ -3,6 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from ..models import Note
+from ..forms import NoteForm
 
 User = get_user_model()
 
@@ -20,26 +21,35 @@ class TestContent(TestCase):
             author=cls.author,
         )
 
-    def test_notes_list_for_different_users(self):
+    def test_notes_list_for_author(self):
         """
         1) Отдельная заметка передаётся на страницу со списком
            заметок в списке object_list в словаре context;
+        """
+        url = reverse('notes:list')
+        self.client.force_login(self.author)
+        with self.subTest(user=self.author.username, note=True):
+            self.assertEqual(
+                self.note in self.client.get(url).context[
+                    'object_list'
+                ],
+                True
+            )
+
+    def test_notes_list_for_reader(self):
+        """
         2) В список заметок одного пользователя не попадают заметки
            другого пользователя;
         """
-        notes_list = (
-            (self.author, True),
-            (self.reader, False),
-        )
         url = reverse('notes:list')
-        for user, note in notes_list:
-            self.client.force_login(user)
-            with self.subTest(user=user.username, note=note):
-                response = self.client.get(url)
-                note_object = self.note in response.context[
+        self.client.force_login(self.reader)
+        with self.subTest(user=self.reader.username, note=False):
+            self.assertEqual(
+                self.note in self.client.get(url).context[
                     'object_list'
-                ]
-                self.assertEqual(note_object, note)
+                ],
+                False
+            )
 
     def test_pages_contains_form(self):
         """
@@ -53,5 +63,8 @@ class TestContent(TestCase):
             with self.subTest(page=page):
                 url = reverse(page, args=args)
                 self.client.force_login(self.author)
-                response = self.client.get(url)
-                self.assertIn('form', response.context)
+                self.assertIn('form', self.client.get(url).context)
+                self.assertIsInstance(
+                    self.client.get(url).context['form'],
+                    NoteForm
+                )
