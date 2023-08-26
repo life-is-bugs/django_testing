@@ -13,9 +13,6 @@ author_client = pytest.lazy_fixture('author_client')
 
 @pytest.mark.usefixtures('many_news')
 def test_news_count(client):
-    """
-    1) Количество новостей на главной странице — не более 10.
-    """
     url = reverse('news:home')
     response = client.get(url)
     news = response.context['object_list']
