@@ -61,7 +61,6 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = []
 
-
 LANGUAGE_CODE = 'ru'
 
 TIME_ZONE = 'Europe/Moscow'
@@ -77,6 +76,7 @@ STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_URL = reverse_lazy('users:login')
+
 LOGIN_REDIRECT_URL = reverse_lazy('news:home')
 
 NEWS_COUNT_ON_HOME_PAGE = 10

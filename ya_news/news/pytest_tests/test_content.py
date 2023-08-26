@@ -2,14 +2,19 @@ import pytest
 from django.urls import reverse
 from django.conf import settings
 
+from news.forms import CommentForm
+
+
 pytestmark = pytest.mark.django_db
 
+anon_client = pytest.lazy_fixture('anon_client')
+author_client = pytest.lazy_fixture('author_client')
 
-@pytest.mark.usefixtures('set_of_news')
+
+@pytest.mark.usefixtures('many_news')
 def test_news_count(client):
     """
-    1) Количество новостей на главной странице равно количеству,
-       установленному в настройках проекта.
+    1) Количество новостей на главной странице — не более 10.
     """
     url = reverse('news:home')
     response = client.get(url)
@@ -18,7 +23,7 @@ def test_news_count(client):
     assert news_count == settings.NEWS_COUNT_ON_HOME_PAGE
 
 
-@pytest.mark.usefixtures('set_of_news')
+@pytest.mark.usefixtures('many_news')
 def test_news_order(client):
     """
     2) Новости отсортированы от самой свежей к самой старой.
@@ -26,46 +31,43 @@ def test_news_order(client):
     """
     url = reverse('news:home')
     response = client.get(url)
-    news = response.context['object_list']
-    sorted_list = sorted(
+    news = list(response.context['object_list'])
+    news_sorted = sorted(
         news,
         key=lambda news: news.date,
         reverse=True
     )
-    for current, expected in zip(news, sorted_list):
-        assert current.date == expected.date
+    assert news == news_sorted
 
 
-@pytest.mark.usefixtures('set_of_comments')
-def test_comments_order(client, news_pk):
+@pytest.mark.usefixtures('many_comments')
+def test_comments_order(client, news):
     """
     3) Комментарии на странице отдельной новости отсортированы
        в хронологическом порядке: старые в начале списка, новые — в конце.
     """
-    url = reverse('news:detail', args=news_pk)
+    url = reverse('news:detail', args=[news.id])
     response = client.get(url)
-    comments = response.context['news'].comment_set.all()
-    comments_sorted_list = sorted(
+    comments = list(response.context['news'].comment_set.all())
+    comments_sorted = sorted(
         comments,
         key=lambda comment: comment.created
     )
-    for current, expected in zip(comments, comments_sorted_list):
-        assert current.created == expected.created
+    assert comments == comments_sorted
 
 
 @pytest.mark.parametrize(
-    'username, is_permitted', (
-        (pytest.lazy_fixture('admin_client'), True),
-        (pytest.lazy_fixture('client'), False),
+    'client, control_form', (
+        (author_client, CommentForm),
+        (anon_client, type(None))
     )
 )
-def test_comment_form_availability_for_diff_users(
-        news_pk, username, is_permitted):
+def test_comment_form_availability_for_diff_users(news, client, control_form):
     """
     4) Анонимному пользователю недоступна форма для отправки комментария
        на странице отдельной новости, а авторизованному доступна.
     """
-    url = reverse('news:detail', args=news_pk)
-    response = username.get(url)
-    result = 'form' in response.context
-    assert result == is_permitted
+    url = reverse('news:detail', args=[news.id])
+    response = client.get(url)
+    response_form = response.context.get('form')
+    assert isinstance(response_form, control_form)

@@ -2,80 +2,61 @@ from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
-from pytest_django.asserts import assertRedirects
+
+
+anon_client = pytest.lazy_fixture('anon_client')
+author_client = pytest.lazy_fixture('author_client')
+another_author_client = pytest.lazy_fixture('another_author_client')
+news = pytest.lazy_fixture('news')
+comment = pytest.lazy_fixture('comment')
+LOGIN_URL = reverse('users:login')
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    'page, args', (
-        ('news:home', None),
-        ('users:login', None),
-        ('users:logout', None),
-        ('users:signup', None),
-        ('news:detail', pytest.lazy_fixture('news_pk')),
+    'page, obj, client, status', (
+        ('news:home', None, anon_client, HTTPStatus.OK),
+        ('news:detail', news, anon_client, HTTPStatus.OK),
+        ('users:login', None, anon_client, HTTPStatus.OK),
+        ('users:logout', None, anon_client, HTTPStatus.OK),
+        ('users:signup', None, anon_client, HTTPStatus.OK),
+        ('news:detail', news, author_client, HTTPStatus.OK),
+        ('news:edit', comment, anon_client, HTTPStatus.FOUND),
+        ('news:edit', comment, another_author_client, HTTPStatus.NOT_FOUND),
+        ('news:edit', comment, author_client, HTTPStatus.OK),
+        ('news:delete', comment, anon_client, HTTPStatus.FOUND),
+        ('news:delete', comment, another_author_client, HTTPStatus.NOT_FOUND),
+        ('news:delete', comment, author_client, HTTPStatus.OK),
     ),
 )
-def test_pages_availability_for_anonymous_user(client, page, args):
-    """
-    1) Главная страница доступна анонимному пользователю.
-    2) Страница отдельной новости доступна анонимному пользователю.
-    6) Страницы регистрации пользователей, входа в учётную запись
-       и выхода из неё доступны анонимным пользователям.
-    """
-    url = reverse(page, args=args)
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.OK
-
-
-@pytest.mark.parametrize(
-    'page, args', (
-        ('news:edit', pytest.lazy_fixture('comment_pk')),
-        ('news:delete', pytest.lazy_fixture('comment_pk')),
-    ),
-)
-def test_pages_availability_for_another_auth_user(
-        author_client,
-        page,
-        args
+def test_pages_status_code(
+    page,
+    obj,
+    client,
+    status
 ):
-    """
-    3) Страницы удаления и редактирования комментария доступны
-       автору комментария.
-    """
-    url = reverse(page, args=args)
-    response = author_client.get(url)
-    assert response.status_code == HTTPStatus.OK
+    if obj:
+        url = reverse(page, args=[obj.id])
+    else:
+        url = reverse(page)
+    response = client.get(url)
+    assert response.status_code == status
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
-    'page, args', (
-        ('news:edit', pytest.lazy_fixture('comment_pk')),
-        ('news:delete', pytest.lazy_fixture('comment_pk')),
+    'page, obj, client', (
+        ('news:edit', news, anon_client),
+        ('news:delete', news, anon_client),
     ),
 )
-def test_redirects(client, page, args):
+def test_redirects(page, obj, client):
     """
     4) При попытке перейти на страницу редактирования или удаления
        комментария анонимный пользователь перенаправляется на
        страницу авторизации.
     """
-    login_url = reverse('users:login')
-    url = reverse(page, args=args)
-    expected_url = f'{login_url}?next={url}'
+    url = reverse(page, args=[obj.id])
+    expected_url = f'{LOGIN_URL}?next={url}'
     response = client.get(url)
-    assertRedirects(response, expected_url)
-
-
-@pytest.mark.parametrize('page', ('news:edit', 'news:delete'))
-def test_pages_availability_for_different_users(
-        page,
-        comment_pk,
-        admin_client
-):
-    """
-    5) Авторизованный пользователь не может зайти на страницы редактирования
-       или удаления чужих комментариев (возвращается ошибка 404).
-    """
-    url = reverse(page, args=comment_pk)
-    response = admin_client.get(url)
-    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert expected_url == response.url

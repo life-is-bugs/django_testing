@@ -1,15 +1,22 @@
 from datetime import datetime, timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.utils import timezone
+from django.test import Client
 
 from news.models import News, Comment
 
+User = get_user_model()
+
 
 @pytest.fixture
-def author(django_user_model):
-    return django_user_model.objects.create(username='author')
+def author():
+    author = User.objects.filter(username='author').first()
+    if not author:
+        author = User.objects.create(username='author')
+    return author
 
 
 @pytest.fixture
@@ -22,14 +29,29 @@ def news():
 
 
 @pytest.fixture
-def author_client(author, client):
-    client.force_login(author)
-    return client
+def author_client():
+    author = User.objects.filter(username='author').first()
+    if not author:
+        author = User.objects.create(username='author')
+    author_client = Client()
+    author_client.force_login(author)
+    return author_client
 
 
 @pytest.fixture
-def news_pk(news):
-    return news.pk,
+def another_author_client():
+    author = User.objects.filter(username='author_2').first()
+    if not author:
+        author = User.objects.create(username='author_2')
+    author_client = Client()
+    author_client.force_login(author)
+    return author_client
+
+
+@pytest.fixture
+def anon_client():
+    anon_client = Client()
+    return anon_client
 
 
 @pytest.fixture
@@ -43,11 +65,6 @@ def comment(author, news):
 
 
 @pytest.fixture
-def comment_pk(comment):
-    return comment.pk,
-
-
-@pytest.fixture
 def form_data():
     return {
         'text': 'Новый текст комментария'
@@ -55,7 +72,7 @@ def form_data():
 
 
 @pytest.fixture
-def set_of_news():
+def many_news():
     News.objects.bulk_create(
         News(
             title=f'Новость {index}',
@@ -67,7 +84,7 @@ def set_of_news():
 
 
 @pytest.fixture
-def set_of_comments(news, author):
+def many_comments(news, author):
     now = timezone.now()
     for index in range(11):
         comment = Comment.objects.create(

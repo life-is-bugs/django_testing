@@ -1,60 +1,63 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.urls import reverse
 
 from ..models import Note
 from ..forms import NoteForm
 
+
 User = get_user_model()
+BASE_URL = 'notes:'
+
+# Расчёт урлов на уровне модуля нецелесообразен,
+# т.к. меняются аргументы (83 строка, notes).
 
 
 class TestContent(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.author = User.objects.create(username='author')
+        # Создаем записи в БД без сохранения
         cls.reader = User.objects.create(username='reader')
+        cls.author = User.objects.create(username='author')
         cls.note = Note.objects.create(
             title='Заголовок',
             text='Текст',
             slug='title-slug',
             author=cls.author,
         )
+        cls.reader_client, cls.author_client = Client(), Client()
+        cls.reader_client.force_login(cls.reader)
+        cls.author_client.force_login(cls.author)
 
-    def test_notes_list_for_author(self):
-        """
-        1) Отдельная заметка передаётся на страницу со списком
-           заметок в списке object_list в словаре context;
-        """
-        url = reverse('notes:list')
-        self.client.force_login(self.author)
-        with self.subTest(user=self.author.username, note=True):
-            self.assertEqual(
-                self.note in self.client.get(url).context[
-                    'object_list'
-                ],
-                True
-            )
+    def test_note_in_user_notes_list(self):
+        notes_list = (
+            (self.author, self.author_client, self.note),
+            (self.reader, self.reader_client, None),
+        )
+        url = reverse(f'{BASE_URL}list')
+        for user, client, note in notes_list:
+            with self.subTest(user=user.username, note=note):
+                response = client.get(url)
+                resp_note = response.context['object_list'].first()
+                self.assertEqual(note, resp_note)
 
-    def test_notes_list_for_reader(self):
-        """
-        2) В список заметок одного пользователя не попадают заметки
-           другого пользователя;
-        """
-        url = reverse('notes:list')
-        self.client.force_login(self.reader)
-        with self.subTest(user=self.reader.username, note=False):
-            self.assertEqual(
-                self.note in self.client.get(url).context[
-                    'object_list'
-                ],
-                False
-            )
+    def test_only_current_user_notes(self):
+        notes = []
+        cases = (
+            (self.reader, self.reader_client),
+            (self.author, self.author_client)
+        )
+        url = reverse(f'{BASE_URL}list')
+        for user, client in cases:
+            with self.subTest(user=user.username):
+                response = client.get(url)
+                resp_note = response.context['object_list'].first()
+                notes.append(resp_note)
+        self.assertNotEqual(notes[0], notes[1])
 
     def test_pages_contains_form(self):
-        """
-        3) На страницы создания и редактирования заметки передаются формы.
-        """
+        client = self.author_client
         urls = (
             ('notes:add', None),
             ('notes:edit', (self.note.slug,)),
@@ -62,9 +65,6 @@ class TestContent(TestCase):
         for page, args in urls:
             with self.subTest(page=page):
                 url = reverse(page, args=args)
-                self.client.force_login(self.author)
-                self.assertIn('form', self.client.get(url).context)
-                self.assertIsInstance(
-                    self.client.get(url).context['form'],
-                    NoteForm
-                )
+                response = client.get(url)
+                response_form = response.context.get('form')
+                self.assertIsInstance(response_form, NoteForm)
