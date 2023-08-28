@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from random import choice
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -7,13 +8,14 @@ from django.utils import timezone
 from django.test import Client
 from django.urls import reverse
 
+from news.forms import BAD_WORDS
 from news.models import News, Comment
+
 
 User = get_user_model()
 
 NEWS_BASE_URL = 'news:'
 USERS_BASE_URL = 'users:'
-USERS_LOGIN_URL = reverse(f'{USERS_BASE_URL}login')
 
 
 @pytest.fixture
@@ -22,9 +24,14 @@ def author():
 
 
 @pytest.fixture
+def another_author():
+    return User.objects.get_or_create(username='author_2')[0]
+
+
+@pytest.fixture
 def news():
     return News.objects.get_or_create(
-        title='Заголовок', text='Текст',
+        title='Заголовок', text='Текст'
     )[0]
 
 
@@ -36,10 +43,11 @@ def author_client(author):
 
 
 @pytest.fixture
-def another_author_client():
-    author = User.objects.get_or_create(username='author_2')[0]
+def another_author_client(another_author):
+    another_author = User.objects.get_or_create(
+        username=another_author.username)[0]
     client = Client()
-    client.force_login(author)
+    client.force_login(another_author)
     return client
 
 
@@ -61,6 +69,13 @@ def comment(news, author):
 def form_data():
     return {
         'text': 'Новый текст комментария'
+    }
+
+
+@pytest.fixture
+def bad_words_data():
+    return {
+        'text': f'Тестовый текст, содержащий {choice(BAD_WORDS)}'
     }
 
 
@@ -125,81 +140,66 @@ def news_home_url():
 
 
 @pytest.fixture
-def news_add_url():
-    return reverse(f'{NEWS_BASE_URL}add')
-
-
-@pytest.fixture
-def news_detail_url():
-    news = News.objects.get_or_create(
-        title='Заголовок', text='Текст',
-    )[0]
-    return reverse(f'{NEWS_BASE_URL}detail', kwargs={'pk': news.pk})
-
-
-@pytest.fixture
 def news_edit_url():
-    author = User.objects.get_or_create(username='author')[0]
-    news = News.objects.get_or_create(
-        title='Заголовок', text='Текст',
-    )[0]
-    comment = Comment.objects.get_or_create(
-        news=news,
-        author=author,
-        text='Текст'
-    )[0]
-    return reverse(
-        f'{NEWS_BASE_URL}edit',
-        kwargs={'pk': comment.pk}
-    )
+    return reverse(f'{NEWS_BASE_URL}edit')
+
+
+@pytest.fixture
+def news_detail_url(news):
+    return reverse(f'{NEWS_BASE_URL}detail', args=(news.pk, ))
+
+
+@pytest.fixture
+def news_edit_url(comment):
+    return reverse(f'{NEWS_BASE_URL}edit', args=(comment.pk, ))
 
 
 @pytest.fixture
 def news_delete_url(comment):
-    return reverse(
-        f'{NEWS_BASE_URL}delete',
-        kwargs={'pk': comment.pk}
-    )
+    return reverse(f'{NEWS_BASE_URL}delete', args=(comment.pk, ))
 
 
 @pytest.fixture
-def news_list_redirect_url():
-    return f'{USERS_LOGIN_URL}?next={reverse(f"{NEWS_BASE_URL}list")}'
+def news_list_redirect_url(users_login_url):
+    return f'{users_login_url}?next={reverse(f"{NEWS_BASE_URL}list")}'
 
 
 @pytest.fixture
-def news_success_redirect_url():
-    return f'{USERS_LOGIN_URL}?next={reverse(f"{NEWS_BASE_URL}success")}'
+def news_success_redirect_url(users_login_url):
+    return f'{users_login_url}?next={reverse(f"{NEWS_BASE_URL}success")}'
 
 
 @pytest.fixture
-def news_add_redirect_url():
-    return f'{USERS_LOGIN_URL}?next={reverse(f"{NEWS_BASE_URL}add")}'
+def news_add_redirect_url(users_login_url):
+    return f'{users_login_url}?next={reverse(f"{NEWS_BASE_URL}add")}'
 
 
 @pytest.fixture
-def news_detail_redirect_url(comment):
-    next_url = reverse(f"{NEWS_BASE_URL}detail", kwargs={"pk": comment.pk})
-    return f'{USERS_LOGIN_URL}?next={next_url}'
+def news_detail_redirect_url(users_login_url, comment):
+    next_url = reverse(f"{NEWS_BASE_URL}detail", args=(comment.pk,))
+    return f"{users_login_url}?next={next_url}"
 
 
 @pytest.fixture
-def news_hash_anchor_comment_redirect(news):
-    return f'/news/{news.pk}/#comments'
+def news_comment_hash_anchor_redirect(news):
+    return reverse(f'{NEWS_BASE_URL}detail', args=(news.pk, )) + '#comments'
 
 
 @pytest.fixture
-def news_hash_anchor_news_redirect(news):
-    return f'{USERS_LOGIN_URL}?next=/news/{news.pk}/'
+def news_comment_redirect(users_login_url, news_detail_url):
+    return f'{users_login_url}?next={news_detail_url}'
 
 
 @pytest.fixture
-def news_edit_redirect_url(comment):
-    next_url = reverse(f"{NEWS_BASE_URL}edit", kwargs={"pk": comment.pk})
-    return f'{USERS_LOGIN_URL}?next={next_url}'
+def news_comment_anchor_redirect(news_detail_url):
+    return news_detail_url + '#comments'
 
 
 @pytest.fixture
-def news_delete_redirect_url(comment):
-    next_url = reverse(f"{NEWS_BASE_URL}delete", kwargs={"pk": comment.pk})
-    return f'{USERS_LOGIN_URL}?next={next_url}'
+def news_edit_redirect_url(users_login_url, news_edit_url):
+    return f'{users_login_url}?next={news_edit_url}'
+
+
+@pytest.fixture
+def news_delete_redirect_url(users_login_url, news_delete_url):
+    return f'{users_login_url}?next={news_delete_url}'

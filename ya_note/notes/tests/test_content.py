@@ -8,6 +8,7 @@ from ..forms import NoteForm
 
 User = get_user_model()
 
+CONST_SLUG = 'slug'
 NOTES_BASE_URL = 'notes:'
 USERS_BASE_URL = 'users:'
 
@@ -18,9 +19,10 @@ NOTES_HOME_URL = reverse(f'{NOTES_BASE_URL}home')
 NOTES_LIST_URL = reverse(f'{NOTES_BASE_URL}list')
 NOTES_SUCCESS_URL = reverse(f'{NOTES_BASE_URL}success')
 NOTES_ADD_URL = reverse(f'{NOTES_BASE_URL}add')
-NOTES_DETAIL_URL = reverse(f'{NOTES_BASE_URL}detail', args=('slug', ))
-NOTES_EDIT_URL = reverse(f'{NOTES_BASE_URL}edit', args=('slug', ))
-NOTES_DELETE_URL = reverse(f'{NOTES_BASE_URL}delete', args=('slug', ))
+NOTES_DETAIL_URL = reverse(f'{NOTES_BASE_URL}detail', args=(CONST_SLUG, ))
+NOTES_EDIT_URL = reverse(f'{NOTES_BASE_URL}edit', args=(CONST_SLUG, ))
+NOTES_DELETE_URL = reverse(f'{NOTES_BASE_URL}delete', args=(CONST_SLUG, ))
+
 NOTES_LIST_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_LIST_URL}'
 NOTES_SUCCESS_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_SUCCESS_URL}'
 NOTES_ADD_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_ADD_URL}'
@@ -42,33 +44,53 @@ class TestContent(TestCase):
             slug='slug',
             author=cls.author,
         )
+
+        # Сохраем сессии клиентов, авторизуемся
         cls.reader_client, cls.author_client = Client(), Client()
         cls.reader_client.force_login(cls.reader)
         cls.author_client.force_login(cls.author)
 
     def test_note_in_user_notes_list(self):
-        with self.subTest(user=self.author.username, note=self.note):
-            response = self.author_client.get(NOTES_LIST_URL)
-            resp_note = response.context['object_list'].filter(
-                id=self.note.pk).first()
-            self.assertEqual(resp_note, self.note)
-            self.assertEqual(resp_note.title, self.note.title)
-            self.assertEqual(resp_note.text, self.note.text)
-            self.assertEqual(resp_note.slug, self.note.slug)
-            self.assertEqual(resp_note.author, self.note.author)
+        """
+        1) Отдельная заметка передаётся на страницу со списком
+        заметок в списке object_list в словаре context;
+        """
+
+        response = self.author_client.get(NOTES_LIST_URL)
+        # Изменение имени переменной
+        response_note = response.context['object_list'].filter(
+            id=self.note.pk)
+        # Контроль существования заметки на странице
+        self.assertTrue(response_note.exists())
+
+        response_note = response_note.first()
+
+        self.assertEqual(response_note, self.note)
+        self.assertEqual(response_note.title, self.note.title)
+        self.assertEqual(response_note.text, self.note.text)
+        self.assertEqual(response_note.slug, self.note.slug)
+        self.assertEqual(response_note.author, self.note.author)
 
     def test_note_not_in_user_notes_list(self):
-        with self.subTest(user=self.reader, note=self.note):
-            response = self.reader_client.get(NOTES_LIST_URL)
-            resp_note = response.context['object_list'].filter(
-                id=self.note.pk).exists()
-            self.assertEqual(resp_note, False)
+        response = self.reader_client.get(NOTES_LIST_URL)
+
+        # Изменение имени переменной с resp_note
+        # Атрибут класса note имеет тип Note, следовательно, является заметкой
+        # Для демонстрации:
+        self.assertIsInstance(self.note, Note)
+        response_note = response.context['object_list'].filter(
+            id=self.note.pk).exists()
+
+        # Исходя из того, что проверка выше валидна,
+        # нет смысла менять проверку ниже
+        self.assertFalse(response_note)
 
     def test_pages_contains_form(self):
         urls = (
             NOTES_ADD_URL,
             NOTES_EDIT_URL,
         )
+
         for url in urls:
             with self.subTest(url=url):
                 response = self.author_client.get(url)

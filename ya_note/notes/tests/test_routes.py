@@ -9,6 +9,7 @@ from ..models import Note
 
 User = get_user_model()
 
+CONST_SLUG = 'slug'
 NOTES_BASE_URL = 'notes:'
 USERS_BASE_URL = 'users:'
 
@@ -19,9 +20,9 @@ NOTES_HOME_URL = reverse(f'{NOTES_BASE_URL}home')
 NOTES_LIST_URL = reverse(f'{NOTES_BASE_URL}list')
 NOTES_SUCCESS_URL = reverse(f'{NOTES_BASE_URL}success')
 NOTES_ADD_URL = reverse(f'{NOTES_BASE_URL}add')
-NOTES_DETAIL_URL = reverse(f'{NOTES_BASE_URL}detail', args=('slug', ))
-NOTES_EDIT_URL = reverse(f'{NOTES_BASE_URL}edit', args=('slug', ))
-NOTES_DELETE_URL = reverse(f'{NOTES_BASE_URL}delete', args=('slug', ))
+NOTES_DETAIL_URL = reverse(f'{NOTES_BASE_URL}detail', args=(CONST_SLUG, ))
+NOTES_EDIT_URL = reverse(f'{NOTES_BASE_URL}edit', args=(CONST_SLUG, ))
+NOTES_DELETE_URL = reverse(f'{NOTES_BASE_URL}delete', args=(CONST_SLUG, ))
 
 NOTES_LIST_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_LIST_URL}'
 NOTES_SUCCESS_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_SUCCESS_URL}'
@@ -54,35 +55,22 @@ class TestRoutes(TestCase):
 
     def test_response_codes(self):
         data = (
-            (NOTES_HOME_URL, self.anon,
-             self.anon_client, HTTPStatus.OK),
-            (USERS_LOGIN_URL, self.anon,
-             self.anon_client, HTTPStatus.OK),
-            (USERS_LOGOUT_URL, self.anon,
-             self.anon_client, HTTPStatus.OK),
-            (USERS_SIGNUP_URL, self.anon,
-             self.anon_client, HTTPStatus.OK),
-            (NOTES_LIST_URL, self.reader,
-             self.reader_client, HTTPStatus.OK),
-            (NOTES_SUCCESS_URL, self.reader,
-             self.reader_client, HTTPStatus.OK),
-            (NOTES_ADD_URL, self.reader,
-             self.reader_client, HTTPStatus.OK),
-            (NOTES_DETAIL_URL, self.author,
-             self.author_client, HTTPStatus.OK),
-            (NOTES_EDIT_URL, self.author,
-             self.author_client, HTTPStatus.OK),
-            (NOTES_DELETE_URL, self.author,
-             self.author_client, HTTPStatus.OK),
-            (NOTES_DETAIL_URL, self.reader,
-             self.reader_client, HTTPStatus.NOT_FOUND),
-            (NOTES_EDIT_URL, self.reader,
-             self.reader_client, HTTPStatus.NOT_FOUND),
-            (NOTES_DELETE_URL, self.reader,
-             self.reader_client, HTTPStatus.NOT_FOUND),
+            (NOTES_HOME_URL, self.anon_client, HTTPStatus.OK),
+            (USERS_LOGIN_URL, self.anon_client, HTTPStatus.OK),
+            (USERS_LOGOUT_URL, self.anon_client, HTTPStatus.OK),
+            (USERS_SIGNUP_URL, self.anon_client, HTTPStatus.OK),
+            (NOTES_LIST_URL, self.reader_client, HTTPStatus.OK),
+            (NOTES_SUCCESS_URL, self.reader_client, HTTPStatus.OK),
+            (NOTES_ADD_URL, self.reader_client, HTTPStatus.OK),
+            (NOTES_DETAIL_URL, self.author_client, HTTPStatus.OK),
+            (NOTES_EDIT_URL, self.author_client, HTTPStatus.OK),
+            (NOTES_DELETE_URL, self.author_client, HTTPStatus.OK),
+            (NOTES_DETAIL_URL, self.reader_client, HTTPStatus.NOT_FOUND),
+            (NOTES_EDIT_URL, self.reader_client, HTTPStatus.NOT_FOUND),
+            (NOTES_DELETE_URL, self.reader_client, HTTPStatus.NOT_FOUND),
         )
-        for url, user, client, status in data:
-            with self.subTest(user=user, url=url):
+        for url, client, status in data:
+            with self.subTest(url=url):
                 self.assertEqual(client.get(url).status_code, status)
 
     def test_redirects(self):

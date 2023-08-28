@@ -4,14 +4,10 @@ from django.conf import settings
 from news.forms import CommentForm
 
 
-pytestmark = [
-    pytest.mark.django_db,
-    pytest.mark.usefixtures('many_news'),
-    pytest.mark.usefixtures('many_comments')
-]
+pytestmark = pytest.mark.django_db
 
 
-def test_news_count(client, news_home_url):
+def test_news_count(client, many_news, news_home_url):
     news = client.get(news_home_url).context['object_list']
     news_count = len(news)
     assert news_count == settings.NEWS_COUNT_ON_HOME_PAGE
@@ -40,16 +36,15 @@ def test_comments_order(client, news_detail_url):
     assert comments == comments_sorted
 
 
-@pytest.mark.parametrize(
-    'client, result', (
-        (pytest.lazy_fixture('author_client'), CommentForm),
-        (pytest.lazy_fixture('anon_client'), type(None))
-    )
-)
 def test_comment_form_availability_for_diff_users(
         news_detail_url,
-        client,
-        result
+        author_client,
+        anon_client
 ):
-    response_form = client.get(news_detail_url).context.get('form')
-    assert isinstance(response_form, result)
+    data = (
+        (author_client, CommentForm),
+        (anon_client, type(None))
+    )
+    for client, result in data:
+        response_form = client.get(news_detail_url).context.get('form')
+        assert isinstance(response_form, result)
