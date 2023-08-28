@@ -7,10 +7,26 @@ from ..forms import NoteForm
 
 
 User = get_user_model()
-BASE_URL = 'notes:'
 
-# Расчёт урлов на уровне модуля нецелесообразен,
-# т.к. меняются аргументы (83 строка, notes).
+NOTES_BASE_URL = 'notes:'
+USERS_BASE_URL = 'users:'
+
+USERS_LOGIN_URL = reverse(f'{USERS_BASE_URL}login')
+USERS_LOGOUT_URL = reverse(f'{USERS_BASE_URL}logout')
+USERS_SIGNUP_URL = reverse(f'{USERS_BASE_URL}signup')
+NOTES_HOME_URL = reverse(f'{NOTES_BASE_URL}home')
+NOTES_LIST_URL = reverse(f'{NOTES_BASE_URL}list')
+NOTES_SUCCESS_URL = reverse(f'{NOTES_BASE_URL}success')
+NOTES_ADD_URL = reverse(f'{NOTES_BASE_URL}add')
+NOTES_DETAIL_URL = reverse(f'{NOTES_BASE_URL}detail', args=('slug', ))
+NOTES_EDIT_URL = reverse(f'{NOTES_BASE_URL}edit', args=('slug', ))
+NOTES_DELETE_URL = reverse(f'{NOTES_BASE_URL}delete', args=('slug', ))
+NOTES_LIST_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_LIST_URL}'
+NOTES_SUCCESS_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_SUCCESS_URL}'
+NOTES_ADD_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_ADD_URL}'
+NOTES_DETAIL_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_DETAIL_URL}'
+NOTES_EDIT_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_EDIT_URL}'
+NOTES_DELETE_REDIRECT_URL = f'{USERS_LOGIN_URL}?next={NOTES_DELETE_URL}'
 
 
 class TestContent(TestCase):
@@ -23,7 +39,7 @@ class TestContent(TestCase):
         cls.note = Note.objects.create(
             title='Заголовок',
             text='Текст',
-            slug='title-slug',
+            slug='slug',
             author=cls.author,
         )
         cls.reader_client, cls.author_client = Client(), Client()
@@ -31,40 +47,30 @@ class TestContent(TestCase):
         cls.author_client.force_login(cls.author)
 
     def test_note_in_user_notes_list(self):
-        notes_list = (
-            (self.author, self.author_client, self.note),
-            (self.reader, self.reader_client, None),
-        )
-        url = reverse(f'{BASE_URL}list')
-        for user, client, note in notes_list:
-            with self.subTest(user=user.username, note=note):
-                response = client.get(url)
-                resp_note = response.context['object_list'].first()
-                self.assertEqual(note, resp_note)
+        with self.subTest(user=self.author.username, note=self.note):
+            response = self.author_client.get(NOTES_LIST_URL)
+            resp_note = response.context['object_list'].filter(
+                id=self.note.pk).first()
+            self.assertEqual(resp_note, self.note)
+            self.assertEqual(resp_note.title, self.note.title)
+            self.assertEqual(resp_note.text, self.note.text)
+            self.assertEqual(resp_note.slug, self.note.slug)
+            self.assertEqual(resp_note.author, self.note.author)
 
-    def test_only_current_user_notes(self):
-        notes = []
-        cases = (
-            (self.reader, self.reader_client),
-            (self.author, self.author_client)
-        )
-        url = reverse(f'{BASE_URL}list')
-        for user, client in cases:
-            with self.subTest(user=user.username):
-                response = client.get(url)
-                resp_note = response.context['object_list'].first()
-                notes.append(resp_note)
-        self.assertNotEqual(notes[0], notes[1])
+    def test_note_not_in_user_notes_list(self):
+        with self.subTest(user=self.reader, note=self.note):
+            response = self.reader_client.get(NOTES_LIST_URL)
+            resp_note = response.context['object_list'].filter(
+                id=self.note.pk).exists()
+            self.assertEqual(resp_note, False)
 
     def test_pages_contains_form(self):
-        client = self.author_client
         urls = (
-            ('notes:add', None),
-            ('notes:edit', (self.note.slug,)),
+            NOTES_ADD_URL,
+            NOTES_EDIT_URL,
         )
-        for page, args in urls:
-            with self.subTest(page=page):
-                url = reverse(page, args=args)
-                response = client.get(url)
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.author_client.get(url)
                 response_form = response.context.get('form')
                 self.assertIsInstance(response_form, NoteForm)
