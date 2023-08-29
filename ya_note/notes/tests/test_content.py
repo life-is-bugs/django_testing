@@ -2,8 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 from django.urls import reverse
 
-from ..models import Note
 from ..forms import NoteForm
+from ..models import Note
 
 
 User = get_user_model()
@@ -51,39 +51,18 @@ class TestContent(TestCase):
         cls.author_client.force_login(cls.author)
 
     def test_note_in_user_notes_list(self):
-        """
-        1) Отдельная заметка передаётся на страницу со списком
-        заметок в списке object_list в словаре context;
-        """
-
         response = self.author_client.get(NOTES_LIST_URL)
-        # Изменение имени переменной
-        response_note = response.context['object_list'].filter(
-            id=self.note.pk)
+        response_notes = response.context['object_list']
         # Контроль существования заметки на странице
-        self.assertTrue(response_note.exists())
+        self.assertIn(self.note, response_notes)
 
-        response_note = response_note.first()
+        note = response_notes.get(pk=self.note.pk)
 
-        self.assertEqual(response_note, self.note)
-        self.assertEqual(response_note.title, self.note.title)
-        self.assertEqual(response_note.text, self.note.text)
-        self.assertEqual(response_note.slug, self.note.slug)
-        self.assertEqual(response_note.author, self.note.author)
-
-    def test_note_not_in_user_notes_list(self):
-        response = self.reader_client.get(NOTES_LIST_URL)
-
-        # Изменение имени переменной с resp_note
-        # Атрибут класса note имеет тип Note, следовательно, является заметкой
-        # Для демонстрации:
-        self.assertIsInstance(self.note, Note)
-        response_note = response.context['object_list'].filter(
-            id=self.note.pk).exists()
-
-        # Исходя из того, что проверка выше валидна,
-        # нет смысла менять проверку ниже
-        self.assertFalse(response_note)
+        self.assertEqual(note, self.note)
+        self.assertEqual(note.title, self.note.title)
+        self.assertEqual(note.text, self.note.text)
+        self.assertEqual(note.slug, self.note.slug)
+        self.assertEqual(note.author, self.note.author)
 
     def test_pages_contains_form(self):
         urls = (

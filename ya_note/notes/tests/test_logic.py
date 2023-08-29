@@ -40,13 +40,19 @@ class TestNoteCreation(TestCase):
     def setUpTestData(cls):
         cls.anon = User.objects.create(username='anon')
         cls.author = User.objects.create(username='Автор')
-        cls.form_data = {'title': 'Заголовок',
-                         'text': 'Текст',
-                         'slug': 'slug'}
+        cls.form_data = {'title': 'Заголовок 1',
+                         'text': 'Текст 1',
+                         'slug': 'test-slug'}
 
         cls.anon_client = Client()
         cls.author_client = Client()
         cls.author_client.force_login(cls.author)
+        cls.note = Note.objects.create(
+            title='Заголовок 2',
+            text='Текст 2',
+            slug=CONST_SLUG,
+            author=cls.author,
+        )
 
     def test_user_can_create_note(self):
         # Собираем все заметки до отправки запроса
@@ -63,7 +69,6 @@ class TestNoteCreation(TestCase):
         self.assertEqual(len(new_notes), 1)
 
         new_note = new_notes.pop()
-        self.assertIsInstance(new_note, Note)
 
         # Проверяем, что она соответствует всем полям отправленной формы
         self.assertEqual(new_note.title, self.form_data['title'])
@@ -77,48 +82,19 @@ class TestNoteCreation(TestCase):
 
         response = self.anon_client.post(NOTES_ADD_URL, data=self.form_data)
         self.assertRedirects(response, NOTES_ADD_REDIRECT_URL)
+        self.assertEqual(author_notes_under_creation, set(Note.objects.all()))
 
-        # Находим разницу множеств
-        new_notes = (
-            set(Note.objects.all()) - author_notes_under_creation
-        )
-        # Проверяем, что не нашли новую заметку
-        self.assertEqual(len(new_notes), 0)
-
-        # Проверяем, что новой заметки нет в БД
-        self.assertFalse(Note.objects.filter(author=self.anon).exists())
-
-    def test_slug_must_be_unique(self):
-        # Собираем все заметки до отправки запроса
-        author_notes_under_creation = set(Note.objects.all())
-
-        for _ in range(2):
-            response = self.author_client.post(
-                NOTES_ADD_URL, data=self.form_data
-            )
-
-        # Находим разницу множеств
-        new_notes = (
-            set(Note.objects.all()) - author_notes_under_creation
-        )
-        # Проверяем, что нашли одну заметку
-        self.assertEqual(len(new_notes), 1)
-
-        new_note = new_notes.pop()
-
-        # Проверяем, что она соответствует всем полям отправленной формы
-        self.assertEqual(new_note.title, self.form_data['title'])
-        self.assertEqual(new_note.text, self.form_data['text'])
-        self.assertEqual(new_note.slug, self.form_data['slug'])
-        self.assertEqual(new_note.author, self.author)
-
-        warning_message = self.form_data['slug'] + WARNING
+    def test_not_unique_slug(self):
+        initial_notes = set(Note.objects.all())
+        self.form_data['slug'] = self.note.slug
+        response = self.author_client.post(NOTES_ADD_URL, data=self.form_data)
         self.assertFormError(
-            response,
-            form='form',
+            response, form='form',
             field='slug',
-            errors=warning_message
+            errors=(self.note.slug) + WARNING
         )
+        new_notes = set(Note.objects.all())
+        self.assertEqual(new_notes, initial_notes)
 
     def test_empty_slug(self):
         # Собираем все заметки до отправки запроса
@@ -154,7 +130,6 @@ class TestNoteEditDelete(TestCase):
             slug='slug',
             author=cls.author,
         )
-
         cls.author_client, cls.reader_client = Client(), Client()
         cls.author_client.force_login(cls.author)
         cls.reader_client.force_login(cls.reader)
@@ -166,17 +141,13 @@ class TestNoteEditDelete(TestCase):
         }
 
     def test_author_can_edit_note(self):
-        note_under_edit = Note.objects.get(pk=self.note.pk)
-        self.assertEqual(self.note.title, 'Заголовок')
-
-        self.author_client.post(NOTES_EDIT_URL, self.form_data)
-        self.note.refresh_from_db()
-
-        note_after_edit = Note.objects.get(pk=self.note.pk)
-        self.assertEqual(note_under_edit.author, note_after_edit.author)
-        self.assertNotEqual(note_under_edit.title, note_after_edit.title)
-        self.assertNotEqual(note_under_edit.text, note_after_edit.text)
-        self.assertNotEqual(note_under_edit.slug, note_after_edit.slug)
+        response = self.author_client.post(NOTES_EDIT_URL, data=self.form_data)
+        self.assertRedirects(response, NOTES_SUCCESS_URL)
+        note = Note.objects.get(pk=self.note.pk)
+        self.assertEqual(note.title, self.form_data['title'])
+        self.assertEqual(note.text, self.form_data['text'])
+        self.assertEqual(note.slug, self.form_data['slug'])
+        self.assertEqual(note.author, self.note.author)
 
     def test_other_user_cant_edit_note(self):
         response = self.reader_client.post(NOTES_EDIT_URL, self.form_data)

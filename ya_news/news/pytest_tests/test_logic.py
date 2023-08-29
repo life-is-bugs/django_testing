@@ -21,11 +21,7 @@ def test_anon_cant_create_comment(
     comments_under_post = set(Comment.objects.all())
     assert anon_client.post(
         news_detail_url, data=form_data).url == news_comment_redirect
-
-    new_comments = (
-        set(Comment.objects.all()) - comments_under_post
-    )
-    assert len(new_comments) == 0
+    assert comments_under_post == set(Comment.objects.all())
 
 
 def test_author_can_create_comment(
@@ -47,6 +43,7 @@ def test_author_can_create_comment(
     new_comment = new_comments.pop()
     assert new_comment.author == author
     assert new_comment.text == form_data['text']
+    assert new_comment.author == author
 
 
 def test_user_cant_use_bad_words(
@@ -57,11 +54,7 @@ def test_user_cant_use_bad_words(
     comments_under_post = set(Comment.objects.all())
     response = author_client.post(news_detail_url, data=bad_words_data)
     assertFormError(response, form='form', field='text', errors=WARNING)
-
-    new_comments = (
-        set(Comment.objects.all()) - comments_under_post
-    )
-    assert len(new_comments) == 0
+    assert comments_under_post == set(Comment.objects.all())
 
 
 def test_author_can_edit_comment(
@@ -74,7 +67,7 @@ def test_author_can_edit_comment(
     author_client.post(news_edit_url, data=form_data)
     updated_comment = Comment.objects.get(id=comment.id)
     assert comment == updated_comment
-    assert comment.text != updated_comment.text
+    assert comment.text == form_data['text']
     assert comment.news == updated_comment.news
     assert comment.author == updated_comment.author
 
@@ -85,21 +78,9 @@ def test_author_can_delete_comment(
         news_comment_anchor_redirect,
         comment
 ):
-    comments_under_post = set(Comment.objects.all())
-
-    assertRedirects(author_client.post(news_delete_url),
-                    news_comment_anchor_redirect
-                    )
-    deleted_comments = (
-        comments_under_post - set(Comment.objects.all())
-    )
-    assert len(deleted_comments) == 1
-
-    deleted_comment = deleted_comments.pop()
-    assert deleted_comment.id == comment.id
-    assert deleted_comment.news == comment.news
-    assert deleted_comment.author == comment.author
-    assert deleted_comment.text == comment.text
+    response = author_client.post(news_delete_url)
+    assertRedirects(response, news_comment_anchor_redirect)
+    assert not Comment.objects.filter(pk=comment.pk).exists()
 
 
 def test_auth_user_cant_edit_stranger_comment(
@@ -121,11 +102,8 @@ def test_auth_user_cant_edit_stranger_comment(
 def test_other_user_cant_delete_comment(
         admin_client,
         news_delete_url,
+        comment
 ):
-    comments_under_post = set(Comment.objects.all())
     assert admin_client.post(
         news_delete_url).status_code == HTTPStatus.NOT_FOUND
-    deleted_comments = (
-        set(Comment.objects.all()) - comments_under_post
-    )
-    assert len(deleted_comments) == 0
+    assert Comment.objects.filter(pk=comment.pk).exists()

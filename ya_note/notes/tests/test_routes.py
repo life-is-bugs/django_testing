@@ -13,6 +13,9 @@ CONST_SLUG = 'slug'
 NOTES_BASE_URL = 'notes:'
 USERS_BASE_URL = 'users:'
 
+OK = HTTPStatus.OK
+NOT_FOUND = HTTPStatus.NOT_FOUND
+
 USERS_LOGIN_URL = reverse(f'{USERS_BASE_URL}login')
 USERS_LOGOUT_URL = reverse(f'{USERS_BASE_URL}logout')
 USERS_SIGNUP_URL = reverse(f'{USERS_BASE_URL}signup')
@@ -55,23 +58,24 @@ class TestRoutes(TestCase):
 
     def test_response_codes(self):
         data = (
-            (NOTES_HOME_URL, self.anon_client, HTTPStatus.OK),
-            (USERS_LOGIN_URL, self.anon_client, HTTPStatus.OK),
-            (USERS_LOGOUT_URL, self.anon_client, HTTPStatus.OK),
-            (USERS_SIGNUP_URL, self.anon_client, HTTPStatus.OK),
-            (NOTES_LIST_URL, self.reader_client, HTTPStatus.OK),
-            (NOTES_SUCCESS_URL, self.reader_client, HTTPStatus.OK),
-            (NOTES_ADD_URL, self.reader_client, HTTPStatus.OK),
-            (NOTES_DETAIL_URL, self.author_client, HTTPStatus.OK),
-            (NOTES_EDIT_URL, self.author_client, HTTPStatus.OK),
-            (NOTES_DELETE_URL, self.author_client, HTTPStatus.OK),
-            (NOTES_DETAIL_URL, self.reader_client, HTTPStatus.NOT_FOUND),
-            (NOTES_EDIT_URL, self.reader_client, HTTPStatus.NOT_FOUND),
-            (NOTES_DELETE_URL, self.reader_client, HTTPStatus.NOT_FOUND),
+            (NOTES_HOME_URL, self.anon_client, OK),
+            (USERS_LOGIN_URL, self.anon_client, OK),
+            (USERS_LOGOUT_URL, self.anon_client, OK),
+            (USERS_SIGNUP_URL, self.anon_client, OK),
+            (NOTES_LIST_URL, self.reader_client, OK),
+            (NOTES_SUCCESS_URL, self.reader_client, OK),
+            (NOTES_ADD_URL, self.reader_client, OK),
+            (NOTES_DETAIL_URL, self.author_client, OK),
+            (NOTES_EDIT_URL, self.author_client, OK),
+            (NOTES_DELETE_URL, self.author_client, OK),
+            (NOTES_DETAIL_URL, self.reader_client, NOT_FOUND),
+            (NOTES_EDIT_URL, self.reader_client, NOT_FOUND),
+            (NOTES_DELETE_URL, self.reader_client, NOT_FOUND),
         )
         for url, client, status in data:
-            with self.subTest(url=url):
-                self.assertEqual(client.get(url).status_code, status)
+            with self.subTest(url=url, client=client, status=status):
+                response = client.get(url)
+                self.assertEqual(response.status_code, status)
 
     def test_redirects(self):
         data = (
