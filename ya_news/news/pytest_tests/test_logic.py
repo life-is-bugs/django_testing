@@ -34,12 +34,10 @@ def test_author_can_create_comment(
     comments_under_post = set(Comment.objects.all())
     response = author_client.post(news_detail_url, data=form_data)
     assert response.url == news_comment_hash_anchor_redirect
-
     new_comments = (
         set(Comment.objects.all()) - comments_under_post
     )
     assert len(new_comments) == 1
-
     new_comment = new_comments.pop()
     assert new_comment.author == author
     assert new_comment.text == form_data['text']

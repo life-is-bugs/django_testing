@@ -36,30 +36,21 @@ def test_comments_order(client, news_detail_url):
     assert comments == comments_sorted
 
 
-# def test_comment_form_availability_for_diff_users(
-#         news_detail_url,
-#         author_client,
-#         anon_client
-# ):
-#     data = (
-#         (author_client, CommentForm),
-#         (anon_client, type(None))
-#     )
-#     for client, result in data:
-#         response_form = client.get(news_detail_url).context.get('form')
-#         assert isinstance(response_form, result)
-
 @pytest.mark.parametrize(
-    'url, user, has_access',
+    'url, client, has_access',
     (
         (pytest.lazy_fixture('news_detail_url'),
          pytest.lazy_fixture('author_client'), True),
         (pytest.lazy_fixture('news_detail_url'),
-         pytest.lazy_fixture('client'), False)
+         pytest.lazy_fixture('anon_client'), False)
     )
 )
-def test_comment_form_availability_for_different_users(user, has_access, url):
-    context = user.get(url).context
+def test_comment_form_availability_for_different_users(
+        url,
+        client,
+        has_access
+):
+    context = client.get(url).context
     assert has_access == ('form' in context)
     if has_access:
         assert isinstance(context['form'], CommentForm)
